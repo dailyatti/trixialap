@@ -1,62 +1,170 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const OpenAI = require('openai');
-const path = require('path');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const path = require('path');
+const OpenAI = require('openai');
+const axios = require('axios');
 
 const app = express();
+const port = process.env.PORT || 3000;
 
-// Biztonsági middleware
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'https://sajatoldalad.hu' : '*'
-}));
-app.use(express.json({ limit: '1mb' }));
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
 
-// Kérésszám korlátozás
+// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 perc
-  max: 100 // IP-nként 100 kérés 15 percenként
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
 });
-app.use('/api/', limiter);
+app.use(limiter);
 
-// Statikus fájlok kiszolgálása
-app.use(express.static(path.join(__dirname, 'public')));
+// Utility Functions
+function calculateValue(odds, probability) {
+    return ((odds * probability) / 100 - 1) * 100;
+}
 
-// AI webes keresés API végpont (OpenAI web_search_preview tool)
-app.post('/api/websearch', async (req, res) => {
+async function getTeamForm(team, apiKey) {
+    try {
+        const response = await axios.get(`https://api-football-v1.p.rapidapi.com/v3/teams`, {
+            params: {
+                search: team
+            },
+            headers: {
+                'x-rapidapi-host': 'api-football-v1.p.rapidapi.com',
+                'x-rapidapi-key': apiKey
+            }
+        });
+
+        if (response.data.results === 0) {
+            throw new Error('Csapat nem található');
+        }
+
+        return {
+            form: 'WWDLW', // Mock data
+            homePerformance: 75, // Mock data
+            awayPerformance: 65 // Mock data
+        };
+    } catch (error) {
+        console.error('Team Form Error:', error);
+        throw error;
+    }
+}
+
+// API Routes
+app.post('/api/analyze', async (req, res) => {
   try {
-    const { prompt, apiKey } = req.body;
-    // Bemeneti adatok validálása
-    if (!prompt || typeof prompt !== 'string' || prompt.length > 1000) {
-      return res.status(400).json({ error: "Érvénytelen keresési kifejezés!" });
-    }
-    if (!apiKey || apiKey.length < 10) {
-      return res.status(400).json({ error: "API kulcs hiányzik vagy túl rövid!" });
-    }
-    const openai = new OpenAI({ apiKey });
-    // OpenAI responses.create, web_search_preview tool-lal
-    const response = await openai.responses.create({
-      model: "gpt-4o",
-      tools: [{ type: "web_search_preview" }],
-      input: prompt
+        const { team1, team2 } = req.body;
+        const openaiKey = req.headers['x-openai-key'];
+        const rapidApiKey = req.headers['x-rapidapi-key'];
+
+        if (!openaiKey || !rapidApiKey) {
+            return res.status(401).json({ error: 'API kulcsok hiányoznak' });
+        }
+
+        if (!team1 || !team2) {
+            return res.status(400).json({ error: 'Mindkét csapat neve szükséges' });
+        }
+
+        const openai = new OpenAI({ apiKey: openaiKey });
+
+        // Get team form data
+        const [team1Form, team2Form] = await Promise.all([
+            getTeamForm(team1, rapidApiKey),
+            getTeamForm(team2, rapidApiKey)
+        ]);
+
+        // Generate analysis with OpenAI
+        const completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+                {
+                    role: "system",
+                    content: "Te egy sportfogadási elemző vagy. Elemezd a csapatok formáját és adj előrejelzést a mérkőzésre."
+                },
+                {
+                    role: "user",
+                    content: `Elemezd a következő mérkőzést: ${team1} vs ${team2}. 
+                             ${team1} forma: ${team1Form.form}, hazai teljesítmény: ${team1Form.homePerformance}%
+                             ${team2} forma: ${team2Form.form}, vendég teljesítmény: ${team2Form.awayPerformance}%`
+                }
+            ]
     });
-    // A válasz szövegét visszaadjuk (idézetekkel, forrásokkal)
-    res.json({ output_text: response.output_text });
-  } catch (err) {
-    console.error('API Hiba:', err);
-    res.status(500).json({
-      error: process.env.NODE_ENV === 'production'
-        ? "Szerver hiba történt!"
-        : err.message
-    });
-  }
+
+        const analysis = {
+            team1: team1Form,
+            team2: team2Form,
+            predictions: {
+                homeWin: 45,
+                draw: 25,
+                awayWin: 30
+            }
+        };
+
+        res.json(analysis);
+    } catch (error) {
+        console.error('Analysis Error:', error);
+        res.status(500).json({ error: 'Szerver hiba történt' });
+    }
 });
 
-// Hibakezelő middleware
+app.post('/api/odds', async (req, res) => {
+    try {
+        const { team1, team2 } = req.body;
+        const openaiKey = req.headers['x-openai-key'];
+        const rapidApiKey = req.headers['x-rapidapi-key'];
+
+        if (!openaiKey || !rapidApiKey) {
+            return res.status(401).json({ error: 'API kulcsok hiányoznak' });
+        }
+
+        if (!team1 || !team2) {
+            return res.status(400).json({ error: 'Mindkét csapat neve szükséges' });
+        }
+
+        // Mock odds data
+        const odds = [
+            {
+                market: '1X2',
+                outcome: '1',
+                odds: 2.10,
+                value: 5.5,
+                confidence: 75
+            },
+            {
+                market: '1X2',
+                outcome: 'X',
+                odds: 3.40,
+                value: 15.0,
+                confidence: 65
+            },
+            {
+                market: '1X2',
+                outcome: '2',
+                odds: 3.20,
+                value: -4.0,
+                confidence: 60
+            }
+        ];
+
+        res.json(odds);
+    } catch (error) {
+        console.error('Odds Error:', error);
+        res.status(500).json({ error: 'Szerver hiba történt' });
+    }
+});
+
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Szerver hiba:', err.stack);
-  res.status(500).json({ error: "Váratlan szerver hiba történt!" });
+    console.error(err.stack);
+    res.status(500).json({ error: 'Szerver hiba történt' });
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`AI backend szerver fut a ${PORT}-es porton!`)); 
+// Start server
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+}); 

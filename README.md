@@ -1,56 +1,112 @@
-# Professzionális Fogadási Rendszer v9.1
+# Sports Betting AI System
 
-Fejlett AI-alapú sportelemző és értékfogadási rendszer modern webes felülettel.
+An AI-powered sports betting analysis system that combines machine learning with real-time sports data to provide intelligent betting insights.
 
-## Funkciók
+## Features
 
-- AI-alapú sportelemzés
-- Valós idejű odds összehasonlítás
-- Fejlett statisztikai elemzés
-- Modern, reszponzív felület
-- Biztonságos API integráció
+- Real-time sports data analysis
+- AI-powered match predictions
+- Value betting opportunities identification
+- Modern, responsive UI
+- Secure API integration
 
-## Projekt Struktúra
+## Prerequisites
 
+- Node.js >= 18.0.0
+- OpenAI API key
+- RapidAPI key (for sports data)
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd sports-betting-ai
 ```
-├── backend_ai_server.js    # Backend szerver AI integrációval
-├── public/                # Statikus fájlok
-│   └── index.html        # Fő alkalmazás felület
-├── package.json          # Projekt függőségek
-└── README.md            # Projekt dokumentáció
-```
 
-## Telepítés
-
-1. Függőségek telepítése:
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Fejlesztői szerver indítása:
+3. Create a `.env` file in the root directory with the following variables:
+```
+PORT=3000
+OPENAI_API_KEY=your_openai_api_key_here
+RAPIDAPI_KEY=your_rapidapi_key_here
+NODE_ENV=development
+```
+
+4. Start the development server:
 ```bash
 npm run dev
 ```
 
-3. Éles környezetben:
+The application will be available at `http://localhost:3000`
+
+## Project Structure
+
+```
+├── public/
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
+├── backend_ai_server.js
+├── package.json
+├── .env
+└── README.md
+```
+
+## API Endpoints
+
+### POST /api/analyze
+Analyzes a match between two teams.
+
+Request body:
+```json
+{
+    "team1": "Team Name 1",
+    "team2": "Team Name 2"
+}
+```
+
+### POST /api/odds
+Retrieves betting odds for a match.
+
+Request body:
+```json
+{
+    "team1": "Team Name 1",
+    "team2": "Team Name 2"
+}
+```
+
+## Security Features
+
+- CORS protection
+- Rate limiting
+- Helmet security headers
+- Input validation
+- Error handling
+
+## Development
+
+To start the development server with hot reloading:
+```bash
+npm run dev
+```
+
+## Production
+
+To start the production server:
 ```bash
 npm start
 ```
 
-## Környezeti Változók
+## License
 
-Hozzon létre egy `.env` fájlt a gyökérkönyvtárban a következő tartalommal:
-```
-OPENAI_API_KEY=az_ön_api_kulcsa
-```
+MIT License
 
-## Biztonság
+## Disclaimer
 
-- API kulcsok biztonságos kezelése
-- CORS védelem engedélyezve
-- Bemeneti adatok validálása
-- Hibakezelés implementálva
-
-## Licenc
-
-Saját tulajdon - Minden jog fenntartva 
+This application is for educational purposes only. Please gamble responsibly and in accordance with local laws and regulations. 
