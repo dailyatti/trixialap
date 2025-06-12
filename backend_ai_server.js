@@ -8,7 +8,7 @@ const app = express();
 
 // Biztonsági middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : '*'
+  origin: process.env.NODE_ENV === 'production' ? 'https://sajatoldalad.hu' : '*'
 }));
 app.use(express.json({ limit: '1mb' }));
 
@@ -22,11 +22,10 @@ app.use('/api/', limiter);
 // Statikus fájlok kiszolgálása
 app.use(express.static(path.join(__dirname, 'public')));
 
-// AI webes keresés API végpont
+// AI webes keresés API végpont (OpenAI web_search_preview tool)
 app.post('/api/websearch', async (req, res) => {
   try {
     const { prompt, apiKey } = req.body;
-    
     // Bemeneti adatok validálása
     if (!prompt || typeof prompt !== 'string' || prompt.length > 1000) {
       return res.status(400).json({ error: "Érvénytelen keresési kifejezés!" });
@@ -34,21 +33,21 @@ app.post('/api/websearch', async (req, res) => {
     if (!apiKey || apiKey.length < 10) {
       return res.status(400).json({ error: "API kulcs hiányzik vagy túl rövid!" });
     }
-
     const openai = new OpenAI({ apiKey });
+    // OpenAI responses.create, web_search_preview tool-lal
     const response = await openai.responses.create({
       model: "gpt-4o",
-      tools: [{ type: "web_search" }],
+      tools: [{ type: "web_search_preview" }],
       input: prompt
     });
-
+    // A válasz szövegét visszaadjuk (idézetekkel, forrásokkal)
     res.json({ output_text: response.output_text });
   } catch (err) {
     console.error('API Hiba:', err);
-    res.status(500).json({ 
-      error: process.env.NODE_ENV === 'production' 
-        ? "Szerver hiba történt!" 
-        : err.message 
+    res.status(500).json({
+      error: process.env.NODE_ENV === 'production'
+        ? "Szerver hiba történt!"
+        : err.message
     });
   }
 });
