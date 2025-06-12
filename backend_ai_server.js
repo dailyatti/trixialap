@@ -36,21 +36,13 @@ app.post('/api/websearch', async (req, res) => {
     }
 
     const openai = new OpenAI({ apiKey });
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
+    const response = await openai.responses.create({
+      model: "gpt-4o",
       tools: [{ type: "web_search" }],
-      messages: [{ role: "user", content: prompt }]
+      input: prompt
     });
 
-    const content = response.choices[0].message.content;
-    const jsonMatch = content.match(/\[.*\]/s);
-    
-    if (!jsonMatch) {
-      return res.status(400).json({ error: "Nem értelmezhető AI válasz!" });
-    }
-
-    const arr = JSON.parse(jsonMatch[0]);
-    res.json(arr);
+    res.json({ output_text: response.output_text });
   } catch (err) {
     console.error('API Hiba:', err);
     res.status(500).json({ 
